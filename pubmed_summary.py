@@ -40,7 +40,7 @@ def fetch_pubmed_articles(query="COVID-19", max_results=5):
         handle.close()
 
         # 解析 XML
-        soup = BeautifulSoup(xml_data, "lxml")
+        soup = BeautifulSoup(xml_data, "lxml-xml")
         title = soup.find("articletitle").text if soup.find("articletitle") else "无标题"
         
         # 提取作者信息
