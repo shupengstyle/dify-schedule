@@ -12,7 +12,7 @@ EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 SMTP_SERVER = os.getenv("EMAIL_SMTP_SERVER", "smtp.yeah.net")
 SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", 465))
-SEARCH_QUERY = os.getenv("SEARCH_QUERY", "COVID-19")
+SEARCH_QUERY = os.getenv("SEARCH_QUERY")
 MAX_RESULTS = int(os.getenv("MAX_RESULTS", 5))
 
 # 初始化配置
