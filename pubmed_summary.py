@@ -48,7 +48,7 @@ def fetch_pubmed_articles(query="COVID-19", max_results=5):
         author_names = ', '.join([f"{author.find('lastname').text} {author.find('initials').text}" for author in authors if author.find('lastname')])
         
         # 提取期刊名称，若不存在则标记为 "未知杂志"
-        journal = soup.find("fulljournalname")
+        journal = soup.find("fulljournalname") or soup.find("source") or soup.find("journal")
         journal_name = journal.text if journal else "未知杂志"
         
         # 获取发表年份
