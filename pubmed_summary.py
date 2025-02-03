@@ -40,15 +40,16 @@ def fetch_pubmed_articles(query="COVID-19", max_results=5):
         handle.close()
 
         # 解析 XML
-        soup = BeautifulSoup(xml_data, "lxml-xml")
+        soup = BeautifulSoup(xml_data, "lxml")
         title = soup.find("articletitle").text if soup.find("articletitle") else "无标题"
         
         # 提取作者信息
         authors = soup.find_all("author")
         author_names = ', '.join([f"{author.find('lastname').text} {author.find('initials').text}" for author in authors if author.find('lastname')])
         
-        # 提取期刊名称，使用大写的 <Journal> 标签
-        journal_name = soup.find("Journal").find("isoabbreviation").text if soup.find("Journal").find("isoabbreviation") else "无杂志名称"
+        # 提取期刊名称，若不存在则标记为 "未知杂志"
+        journal = soup.find("ISOAbbreviation")
+        journal_name = journal.text if journal else "未知杂志"
         
         # 获取发表年份
         pub_date = soup.find("pubdate")
