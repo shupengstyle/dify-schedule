@@ -5,6 +5,7 @@ from email.mime.multipart import MIMEMultipart
 from Bio import Entrez
 from bs4 import BeautifulSoup
 import google.generativeai as genai
+import requests
 
 # 环境变量配置
 PUBMED_API_KEY = os.getenv("PUBMED_API_KEY")
@@ -14,7 +15,7 @@ SMTP_SERVER = os.getenv("EMAIL_SMTP_SERVER", "smtp.yeah.net")
 SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", 465))
 SEARCH_QUERY = os.getenv("SEARCH_QUERY")
 MAX_RESULTS = int(os.getenv("MAX_RESULTS", 5))
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") # 新增 Gemini API KEY
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # 初始化配置
 Entrez.email = EMAIL_ADDRESS
@@ -35,6 +36,34 @@ def translate_text(text, target_language="zh-CN"):
     except Exception as e:
         print(f"Gemini API 翻译失败: {str(e)}")
         return text
+
+def summarize_text(text, target_language="zh-CN"):
+    """使用 Gemini API 生成文本总结"""
+    if not text:
+        return "无内容可总结"
+    try:
+       response = model.generate_content(f"Summarize the following text in {target_language} within 100 words: {text}")
+       return response.text.strip() if response.text else "无法生成总结"
+    except Exception as e:
+        print(f"Gemini API 总结失败: {str(e)}")
+        return "无法生成总结"
+
+def get_fulltext(doi):
+    """尝试获取全文内容"""
+    if doi == "无DOI":
+        return None
+
+    try:
+        url = f"https://doi.org/{doi}"
+        response = requests.get(url, headers={"Accept": "text/plain"}, timeout=10)
+        if response.status_code == 200:
+            return response.text
+        else:
+            print(f"获取全文失败 (Status Code: {response.status_code}), doi: {doi}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"请求全文失败: {str(e)}, doi: {doi}")
+        return None
 
 
 def get_article_details(pmid):
@@ -65,9 +94,14 @@ def get_article_details(pmid):
         if abstract_section := soup.find("Abstract"):
             abstract = "\n".join([text.get_text() for text in abstract_section.find_all("AbstractText")])
 
-        # 翻译处理
+        # 获取全文或使用摘要进行总结
+        fulltext = get_fulltext(meta["doi"])
+        if fulltext:
+            summary = summarize_text(fulltext)
+        else:
+           summary = summarize_text(abstract or "无摘要")
+        
         translated_title = translate_text(meta["title"])
-        translated_abstract = translate_text(abstract or "无摘要")
 
         return {
             "pmid": pmid,
@@ -75,7 +109,7 @@ def get_article_details(pmid):
             "authors": authors,
             "abstract": abstract,
             "translated_title": translated_title,
-            "translated_abstract": translated_abstract,
+             "summary": summary,
             "link": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
         }
 
@@ -125,8 +159,7 @@ def send_email(articles):
                 <p><b>中文标题:</b> {article['translated_title']}</p>
                 <p><b>作者:</b> {', '.join(article['authors'])}</p>
                 <p><b>期刊:</b> {article['journal']} ({article['year']})</p>
-                <p><b>摘要:</b><br>{article['abstract'] or '无摘要'}</p>
-                <p><b>中文摘要:</b><br>{article['translated_abstract']}</p>
+                 <p><b>总结:</b><br>{article['summary']}</p>
                 <p>
                     <a href="{article['link']}">PubMed链接</a> | 
                     <a href="https://doi.org/{article['doi']}">全文链接</a>
