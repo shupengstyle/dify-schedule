@@ -42,13 +42,23 @@ def fetch_pubmed_articles(query="COVID-19", max_results=5):
         # 解析 XML
         soup = BeautifulSoup(xml_data, "lxml")
         title = soup.find("articletitle").text if soup.find("articletitle") else "无标题"
+        
+        # 提取作者信息
         authors = soup.find_all("author")
         author_names = ', '.join([f"{author.find('lastname').text} {author.find('initials').text}" for author in authors if author.find('lastname')])
-        journal = soup.find("fulljournalname").text if soup.find("fulljournalname") else "未知杂志"
+        
+        # 提取期刊名称，若不存在则标记为 "未知杂志"
+        journal = soup.find("fulljournalname")
+        journal_name = journal.text if journal else "未知杂志"
+        
+        # 获取发表年份
         pub_date = soup.find("pubdate")
         pub_year = pub_date.find("year").text if pub_date and pub_date.find("year") else "未知年份"
+        
+        # 摘要和 DOI
         abstract = soup.find("abstracttext")
         doi = soup.find("elocationid").text if soup.find("elocationid") else "无 DOI"
+        full_text_url = f"https://doi.org/{doi}" if doi != "无 DOI" else None
         link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
         
         # 获取中文翻译
@@ -57,15 +67,14 @@ def fetch_pubmed_articles(query="COVID-19", max_results=5):
 
         # 格式化邮件内容
         article_content = f"""
-        {idx}. {title}. by {author_names} ({pub_year}) {journal}
-        {translated_title}
-        PMID: {pmid} doi: {doi}
+{idx}. {title}. by {author_names} ({pub_year}) {journal_name}
+ {translated_title}
+PMID: {pmid} doi: {doi}
         """
         articles.append(article_content)
 
-    # 邮件内容的纯文本模板
-    text_content = f"最新 PubMed 文献（{len(article_ids)} 篇）\n\n"
-    text_content += "\n\n".join(articles)
+    # 邮件内容的文本格式
+    text_content = "\n\n".join(articles)
 
     with open("pubmed_articles.txt", "w", encoding="utf-8") as f:
         f.write(text_content)
