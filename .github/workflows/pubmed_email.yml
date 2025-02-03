@@ -33,5 +33,6 @@ jobs:
           SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}   
           PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
           MAX_RESULTS: ${{ secrets.MAX_RESULTS }}  
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }} 
         run: python pubmed_summary.py --send
 
