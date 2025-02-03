@@ -1,6 +1,5 @@
 import os
 import requests
-import re
 from Bio import Entrez
 from bs4 import BeautifulSoup
 import smtplib
@@ -48,11 +47,15 @@ def fetch_pubmed_articles(query="COVID-19", max_results=5):
         authors = soup.find_all("author")
         author_names = ', '.join([f"{author.find('lastname').text} {author.find('initials').text}" for author in authors if author.find('lastname')])
         
-        # 提取期刊名称，优先从 <Title> 标签获取
-        journal = soup.find("journal")
+        # 提取期刊名称，使用大写的 <Journal> 标签
+        journal = soup.find("Journal")
         journal_name = "未知杂志"
         if journal:
-            journal_name = journal.text.strip()  # 从 <Title> 获取期刊名称
+            iso_abbreviation = journal.find("ISOAbbreviation")  # 提取 ISOAbbreviation 标签
+            if iso_abbreviation:
+                journal_name = iso_abbreviation.text.strip()  # 提取期刊的 ISO 缩写
+            else:
+                print("ISOAbbreviation tag not found in the XML.")
         
         # 获取发表年份
         pub_date = soup.find("pubdate")
