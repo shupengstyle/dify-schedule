@@ -57,7 +57,7 @@ def summarize_text(text, target_language="en"):  # 默认英文总结
     if not text:
         return "无内容可总结"
     try:
-       response = model.generate_content(f"Provide an academic summary of the following medical research article in {target_language}, emphasizing the background, methodology, key findings, and conclusions: {text}")
+       response = model.generate_content(f"Provide an academic summary of the following medical research article in {target_language}: {text}")
        return response.text.strip() if response.text else "无法生成总结"
     except Exception as e:
         print(f"Gemini API 总结失败: {str(e)}")
