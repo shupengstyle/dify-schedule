@@ -49,7 +49,6 @@ def fetch_pubmed_articles(query="COVID-19", max_results=5):
         pub_year = pub_date.find("year").text if pub_date and pub_date.find("year") else "未知年份"
         abstract = soup.find("abstracttext")
         doi = soup.find("elocationid").text if soup.find("elocationid") else "无 DOI"
-        full_text_url = f"https://doi.org/{doi}" if doi != "无 DOI" else None
         link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
         
         # 获取中文翻译
@@ -58,44 +57,25 @@ def fetch_pubmed_articles(query="COVID-19", max_results=5):
 
         # 格式化邮件内容
         article_content = f"""
-        <tr>
-            <td>{idx}</td>
-            <td>{title}</td>
-            <td>by {author_names} ({pub_year}) {journal}</td>
-            <td>{translated_title}</td>
-            <td>PMID: <a href="{link}" target="_blank">{pmid}</a>  doi: <a href="{full_text_url}" target="_blank">{doi}</a></td>
-        </tr>
+        {idx}. {title}. by {author_names} ({pub_year}) {journal}
+        {translated_title}
+        PMID: {pmid} doi: {doi}
         """
         articles.append(article_content)
 
-    # 邮件内容的 HTML 模板
-    html_content = f"""
-    <html>
-    <body>
-        <h2>最新 PubMed 文献（{len(article_ids)} 篇）</h2>
-        <table border="1" cellpadding="5" cellspacing="0">
-            <tr>
-                <th>序号</th>
-                <th>文献标题</th>
-                <th>作者及年份/杂志</th>
-                <th>中文翻译</th>
-                <th>PubMed ID / DOI</th>
-            </tr>
-            {''.join(articles)}
-        </table>
-    </body>
-    </html>
-    """
+    # 邮件内容的纯文本模板
+    text_content = f"最新 PubMed 文献（{len(article_ids)} 篇）\n\n"
+    text_content += "\n\n".join(articles)
 
-    with open("pubmed_articles.html", "w", encoding="utf-8") as f:
-        f.write(html_content)
+    with open("pubmed_articles.txt", "w", encoding="utf-8") as f:
+        f.write(text_content)
 
     return "✅ 文献摘要已获取并保存。"
 
 def send_email():
     """发送邮件"""
     
-    with open("pubmed_articles.html", "r", encoding="utf-8") as f:
+    with open("pubmed_articles.txt", "r", encoding="utf-8") as f:
         articles_content = f.read()
 
     subject = "最新 PubMed 文献 (含全文/摘要总结)"
@@ -103,7 +83,7 @@ def send_email():
     msg["From"] = EMAIL_ADDRESS
     msg["To"] = EMAIL_ADDRESS
     msg["Subject"] = subject
-    msg.attach(MIMEText(articles_content, "html", "utf-8"))
+    msg.attach(MIMEText(articles_content, "plain", "utf-8"))
 
     try:
         # 使用 SSL 连接 Yeah.net 邮件服务器
