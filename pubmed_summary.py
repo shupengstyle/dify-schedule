@@ -4,7 +4,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from Bio import Entrez
 from bs4 import BeautifulSoup
-from googletrans import Translator
+import google.generativeai as genai
 
 # 环境变量配置
 PUBMED_API_KEY = os.getenv("PUBMED_API_KEY")
@@ -14,11 +14,28 @@ SMTP_SERVER = os.getenv("EMAIL_SMTP_SERVER", "smtp.yeah.net")
 SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", 465))
 SEARCH_QUERY = os.getenv("SEARCH_QUERY")
 MAX_RESULTS = int(os.getenv("MAX_RESULTS", 5))
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") # 新增 Gemini API KEY
 
 # 初始化配置
 Entrez.email = EMAIL_ADDRESS
 Entrez.api_key = PUBMED_API_KEY
-translator = Translator(service_urls=['translate.google.cn'])
+
+# 配置 Gemini API
+genai.configure(api_key=GOOGLE_API_KEY)
+model = genai.GenerativeModel('gemini-pro')
+
+
+def translate_text(text, target_language="zh-CN"):
+    """使用 Gemini API 翻译文本"""
+    if not text:
+        return ""
+    try:
+        response = model.generate_content(f"Translate the following text to {target_language}: {text}")
+        return response.text.strip() if response.text else text
+    except Exception as e:
+        print(f"Gemini API 翻译失败: {str(e)}")
+        return text
+
 
 def get_article_details(pmid):
     """获取单篇文献详细信息"""
@@ -49,13 +66,8 @@ def get_article_details(pmid):
             abstract = "\n".join([text.get_text() for text in abstract_section.find_all("AbstractText")])
 
         # 翻译处理
-        try:
-            translated_title = translator.translate(meta["title"], dest="zh-cn").text
-            translated_abstract = translator.translate(abstract or "无摘要", dest="zh-cn").text
-        except Exception as e:
-            print(f"翻译失败: {str(e)}")
-            translated_title = meta["title"]
-            translated_abstract = abstract
+        translated_title = translate_text(meta["title"])
+        translated_abstract = translate_text(abstract or "无摘要")
 
         return {
             "pmid": pmid,
@@ -70,6 +82,7 @@ def get_article_details(pmid):
     except Exception as e:
         print(f"获取文献 {pmid} 详情失败: {str(e)}")
         return None
+
 
 def fetch_articles():
     """获取文献列表"""
@@ -87,6 +100,7 @@ def fetch_articles():
         print(f"文献搜索失败: {str(e)}")
         return []
 
+
 def send_email(articles):
     """发送文献汇总邮件"""
     try:
@@ -103,7 +117,7 @@ def send_email(articles):
                 <h2>最新 {len(articles)} 篇文献</h2>
                 <p>搜索关键词: {SEARCH_QUERY}</p>
         """
-        
+
         for idx, article in enumerate(articles, 1):
             html_content += f"""
             <div style="margin-bottom: 30px; border-bottom: 1px solid #eee;">
@@ -119,7 +133,7 @@ def send_email(articles):
                 </p>
             </div>
             """
-        
+
         html_content += "</body></html>"
         msg.attach(MIMEText(html_content, "html", "utf-8"))
 
@@ -132,19 +146,20 @@ def send_email(articles):
     except Exception as e:
         print(f"邮件发送失败: {str(e)}")
 
+
 if __name__ == "__main__":
     print("🚀 开始获取文献...")
     article_ids = fetch_articles()
-    
+
     if not article_ids:
         print("❌ 未找到相关文献")
         exit()
-    
+
     articles = []
     for pmid in article_ids:
         if article := get_article_details(pmid):
             articles.append(article)
-    
+
     if articles:
         send_email(articles)
     else:
