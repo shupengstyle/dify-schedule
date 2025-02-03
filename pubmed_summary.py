@@ -87,7 +87,7 @@ def send_email():
     EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
     EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
     SMTP_SERVER = os.getenv("EMAIL_SMTP_SERVER")
-    SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", 587))
+    SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", 465))  # 使用 465 端口（SSL）
 
     with open("pubmed_articles.txt", "r", encoding="utf-8") as f:
         articles_content = f.read()
@@ -99,11 +99,15 @@ def send_email():
     msg["Subject"] = subject
     msg.attach(MIMEText(articles_content, "plain"))
 
-    server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-    server.starttls()
-    server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-    server.sendmail(EMAIL_ADDRESS, EMAIL_ADDRESS, msg.as_string())
-    server.quit()
+    try:
+        # 使用 SSL 加密方式连接 SMTP 服务器
+        server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)
+        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+        server.sendmail(EMAIL_ADDRESS, EMAIL_ADDRESS, msg.as_string())
+        server.quit()
+        print("Email sent successfully.")
+    except Exception as e:
+        print(f"Error sending email: {e}")
 
 if __name__ == "__main__":
     if "--send" in sys.argv:
