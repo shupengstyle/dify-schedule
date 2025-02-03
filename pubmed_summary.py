@@ -1,5 +1,6 @@
 import os
 import requests
+import re
 from Bio import Entrez
 from bs4 import BeautifulSoup
 import smtplib
@@ -47,9 +48,15 @@ def fetch_pubmed_articles(query="COVID-19", max_results=5):
         authors = soup.find_all("author")
         author_names = ', '.join([f"{author.find('lastname').text} {author.find('initials').text}" for author in authors if author.find('lastname')])
         
-        # 提取期刊名称，若不存在则标记为 "未知杂志"
-        journal = soup.find("fulljournalname") or soup.find("source") or soup.find("journal")
-        journal_name = journal.text if journal else "未知杂志"
+        # 提取期刊名称，使用正则表达式精准提取
+        journal_raw = soup.find("fulljournalname") or soup.find("source") or soup.find("journal")
+        journal_name = "未知杂志"
+        if journal_raw:
+            journal_text = journal_raw.text.strip()
+            # 正则表达式提取期刊名称，假设期刊名称是字母或字母+空格组合
+            match = re.match(r"^[a-zA-Z\s]+$", journal_text)
+            if match:
+                journal_name = journal_text
         
         # 获取发表年份
         pub_date = soup.find("pubdate")
