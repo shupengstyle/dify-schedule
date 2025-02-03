@@ -30,5 +30,6 @@ jobs:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
           EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
+          SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}          
         run: python pubmed_summary.py --send
 
