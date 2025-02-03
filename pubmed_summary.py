@@ -49,13 +49,8 @@ def fetch_pubmed_articles(query="COVID-19", max_results=5):
         
         # 提取期刊名称，使用大写的 <Journal> 标签
         journal = soup.find("Journal")
-        journal_name = "未知杂志"
-        if journal:
-            iso_abbreviation = journal.find("ISOAbbreviation")  # 提取 ISOAbbreviation 标签
-            if iso_abbreviation:
-                journal_name = iso_abbreviation.text.strip()  # 提取期刊的 ISO 缩写
-            else:
-                print("ISOAbbreviation tag not found in the XML.")
+        iso_abbreviation = journal.find("ISOAbbreviation")
+        journal_name = iso_abbreviation.text.strip()
         
         # 获取发表年份
         pub_date = soup.find("pubdate")
