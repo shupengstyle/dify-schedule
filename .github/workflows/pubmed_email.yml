@@ -18,6 +18,9 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Install dependencies
+        run: pip install requests biopython googletrans==4.0.0-rc1 beautifulsoup4 sumy
+
       - name: Fetch and summarize PubMed articles
         run: python pubmed_summary.py
 
@@ -28,3 +31,4 @@ jobs:
           EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
           EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
         run: python pubmed_summary.py --send
+
