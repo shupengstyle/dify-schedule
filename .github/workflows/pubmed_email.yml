@@ -1,0 +1,33 @@
+name: PubMed Literature Summary to Email
+
+on:
+  schedule:
+    - cron: '30 22 * * *'  # 每天 UTC 22:30 运行（北京时间 06:30）
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  fetch_summarize_email:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install requests smtplib email biopython googletrans==4.0.0-rc1 beautifulsoup4 sumy
+
+      - name: Fetch and summarize PubMed articles
+        run: python pubmed_summary.py
+
+      - name: Send email
+        env:
+          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
+          EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
+        run: python pubmed_summary.py --send
