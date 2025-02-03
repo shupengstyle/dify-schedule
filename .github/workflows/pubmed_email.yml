@@ -30,6 +30,8 @@ jobs:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
           EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
-          SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}          
+          SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}   
+          PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
+          MAX_RESULTS: ${{ secrets.MAX_RESULTS }}  
         run: python pubmed_summary.py --send
 
