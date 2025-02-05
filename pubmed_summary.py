@@ -114,6 +114,95 @@ def summarize_text(text, target_language="en"):  # 默认英文总结
         logging.error(f"Gemini API 总结失败: {str(e)}")
         return "无法生成总结"
 
+def get_fulltext_by_doi(doi):
+    """尝试通过DOI获取全文"""
+    if doi == "无DOI":
+        return None
+
+    try:
+        url = f"https://doi.org/{doi}"
+        response = requests.get(url, headers={"Accept": "text/plain"}, timeout=10)
+        if response.status_code == 200:
+             return response.text
+        else:
+            print(f"通过DOI获取全文失败 (Status Code: {response.status_code}), doi: {doi}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"请求DOI全文失败: {str(e)}, doi: {doi}")
+        return None
+
+def get_fulltext_by_pmcid(pmcid):
+    """尝试通过PMCID获取全文"""
+    if not pmcid or pmcid == "无PMCID":
+        return None
+
+    try:
+        url = f"https://www.ncbi.nlm.nih.gov/pmc/articles/PMC{pmcid}/?format=txt"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+           return response.text
+        else:
+           print(f"通过PMCID获取全文失败 (Status Code: {response.status_code}), pmcid: {pmcid}")
+           return None
+    except requests.exceptions.RequestException as e:
+        print(f"请求PMCID全文失败: {str(e)}, pmcid: {pmcid}")
+        return None
+
+def get_article_details(pmid):
+    """获取单篇文献详细信息"""
+    try:
+        handle = Entrez.efetch(db="pubmed", id=pmid, rettype="xml", retmode="text")
+        xml_data = handle.read()
+        soup = BeautifulSoup(xml_data, "lxml-xml")
+
+        # 解析元数据
+        meta = {
+            "title": soup.find("ArticleTitle").get_text() if soup.find("ArticleTitle") else "无标题",
+            "journal": soup.find("ISOAbbreviation").get_text() if soup.find("ISOAbbreviation") else "未知杂志",
+            "year": soup.find("Year").get_text() if soup.find("Year") else "未知年份",
+            "doi": soup.find("ELocationID", {"EIdType": "doi"}).get_text() if soup.find("ELocationID", {"EIdType": "doi"}) else "无DOI",
+            "pmcid": soup.find("ArticleId", {"IdType": "pmc"}).get_text() if soup.find("ArticleId", {"IdType": "pmc"}) else "无PMCID"
+        }
+
+        # 处理作者信息
+        authors = []
+        for author in soup.find_all("Author"):
+            lastname = author.find("LastName").get_text() if author.find("LastName") else ""
+            initials = author.find("Initials").get_text() if author.find("Initials") else ""
+            if lastname and initials:
+                authors.append(f"{lastname} {initials}")
+
+        # 处理摘要
+        abstract = ""
+        if abstract_section := soup.find("Abstract"):
+            abstract = "\n".join([text.get_text() for text in abstract_section.find_all("AbstractText")])
+
+        # 获取全文或使用摘要进行总结
+        fulltext = get_fulltext_by_doi(meta["doi"])
+        if not fulltext:
+            fulltext = get_fulltext_by_pmcid(meta["pmcid"])
+
+        if fulltext:
+            summary = summarize_text(fulltext)
+        else:
+            summary = summarize_text(abstract or "无摘要")
+
+        translated_summary = translate_text(summary, target_language="zh-CN")
+        translated_title = translate_text(meta["title"], target_language="zh-CN")
+
+        return {
+            "pmid": pmid,
+            **meta,
+            "authors": authors,
+            "abstract": abstract,
+            "translated_title": translated_title,
+            "summary": translated_summary,
+            "link": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+        }
+
+    except Exception as e:
+        print(f"获取文献 {pmid} 详情失败: {str(e)}")
+        return None
 
 def cleanup_processed_pmids(pmids):
     """Cleanup processed PMIDs, removing entries older than PROCESSED_PMIDS_EXPIRATION_DAYS."""
@@ -131,8 +220,57 @@ def cleanup_processed_pmids(pmids):
     logging.info(f"Cleaned up processed PMIDs, removed {len(pmids) - len(cleaned_pmids)} entries.")
     return cleaned_pmids
 
+def send_email(articles):
+    """发送文献汇总邮件"""
+    try:
+        # 构建邮件内容
+        msg = MIMEMultipart()
+        msg["From"] = EMAIL_ADDRESS
+        msg["To"] = EMAIL_ADDRESS
+        msg["Subject"] = f"PubMed文献更新 - {SEARCH_QUERY}"
 
-# ... 其他函数 ...
+        # HTML内容模板
+        html_content = f"""
+        <html>
+            <body>
+                <h2>最新 {len(articles)} 篇文献</h2>
+                <p>搜索关键词: {SEARCH_QUERY}</p>
+        """
+
+        for idx, article in enumerate(articles, 1):
+            html_content += f"""
+            <div style="margin-bottom: 30px; border-bottom: 1px solid #eee;">
+                <h3>{idx}. {article['title']}</h3>
+                 <p><b>中文标题:</b> {article['translated_title']}</p>
+                <p><b>作者:</b> {', '.join(article['authors'])}</p>
+                <p><b>期刊:</b> {article['journal']} ({article['year']})</p>
+                <p><b>中文总结:</b><br>{article['summary']}</p>
+                <p>
+                    <a href="{article['link']}">PubMed链接</a> |
+                    <a href="https://doi.org/{article['doi']}">全文链接</a>
+                </p>
+            </div>
+            """
+
+        html_content += "</body></html>"
+        msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+        # 发送邮件
+        try:
+            logging.info(f"Connecting to SMTP server: {SMTP_SERVER}:{SMTP_PORT}")
+            with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+                logging.info(f"Logging in to email account: {EMAIL_ADDRESS}")
+                server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+                logging.info("Login successful.")
+                logging.info(f"Sending email to: {EMAIL_ADDRESS}")
+                server.send_message(msg)
+                logging.info("✅ 邮件发送成功")
+        except smtplib.SMTPException as e:
+            logging.error(f"❌ SMTP error occurred: {e}")
+            raise  # Re-raise the exception to be caught in the outer block
+
+    except Exception as e:
+        logging.error(f"❌ 邮件发送失败: {str(e)}")
 
 if __name__ == "__main__":
     logging.info("🚀 开始获取文献...")
