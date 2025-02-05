@@ -19,7 +19,7 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install requests biopython google-generativeai beautifulsoup4 sumy 
+        run: pip install requests biopython google-generativeai beautifulsoup4 sumy python-dotenv 
 
       - name: Fetch and summarize PubMed articles
         run: python pubmed_summary.py
