@@ -34,5 +34,7 @@ jobs:
           PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
           MAX_RESULTS: ${{ secrets.MAX_RESULTS }}  
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }} 
+          PROCESSED_PMIDS_FILE: ${{ secrets.PROCESSED_PMIDS_FILE }}
+          PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
         run: python pubmed_summary.py --send
 
