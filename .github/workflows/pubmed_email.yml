@@ -19,22 +19,42 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install requests biopython google-generativeai beautifulsoup4 sumy python-dotenv 
+        run: pip install requests biopython google-generativeai beautifulsoup4 sumy python-dotenv
+
+      - name: Cache processed PMIDs
+        id: cache-processed-pmids
+        uses: actions/cache@v3
+        with:
+          path: processed_pmids.json  # 要缓存的文件
+          key: processed-pmids-${{ github.sha }}  # 缓存的键，使用 commit SHA 作为唯一标识
+          restore-keys: |
+            processed-pmids- # 匹配任何以前的缓存
 
       - name: Fetch and summarize PubMed articles
-        run: python pubmed_summary.py
-
-      - name: Send email
         env:
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
           EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
-          SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}   
+          SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}
           PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
-          MAX_RESULTS: ${{ secrets.MAX_RESULTS }}  
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }} 
-          PROCESSED_PMIDS_FILE: ${{ secrets.PROCESSED_PMIDS_FILE }}
+          MAX_RESULTS: ${{ secrets.MAX_RESULTS }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          PROCESSED_PMIDS_FILE: processed_pmids.json  #  重要：指定文件名，不需要secrets
+          PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
+        run: python pubmed_summary.py
+
+      - name: Send email
+        if: success() #  只有前面的步骤成功才运行
+        env:
+          EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
+          EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
+          SEARCH_QUERY: ${{ secrets.SEARCH_QUERY }}
+          PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
+          MAX_RESULTS: ${{ secrets.MAX_RESULTS }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          PROCESSED_PMIDS_FILE: processed_pmids.json #  重要：指定文件名，不需要secrets
           PROCESSED_PMIDS_EXPIRATION_DAYS: ${{ secrets.PROCESSED_PMIDS_EXPIRATION_DAYS }}
         run: python pubmed_summary.py --send
-
