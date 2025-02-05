@@ -57,10 +57,19 @@ def summarize_text(text, target_language="en"):  # 默认英文总结
     if not text:
         return "无内容可总结"
     try:
-       response = model.generate_content(f"Provide an academic summary of the following medical research article in {target_language}: {text}")
-       return response.text.strip() if response.text else "无法生成总结"
+        prompt = f"""
+        请以学术角度总结以下医学研究文章，去除任何与标题、作者、摘要、方法、结论等相关的明确字眼。
+        请概括文章的研究目的、采用的主要方法、取得的关键研究结果以及研究的意义和价值。
+        总结应简洁明了，避免冗余信息。
+        文本：
+        {text}
+        """
+        response = model.generate_content(prompt)
+        # 清理 Gemini API 返回的文本，去除多余的星号和其他无关符号
+        cleaned_text = response.text.strip().replace("**", "").replace("*", "").replace("■", "").replace("●", "").replace("◆", "")
+        return cleaned_text if response.text else "无法生成总结"
     except Exception as e:
-        print(f"Gemini API 总结失败: {str(e)}")
+        logging.error(f"Gemini API 总结失败: {str(e)}")
         return "无法生成总结"
 
 def get_fulltext_by_doi(doi):
