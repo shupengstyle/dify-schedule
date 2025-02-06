@@ -5,12 +5,12 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from Bio import Entrez
 from bs4 import BeautifulSoup
-import google.generativeai as genai
 import requests
 import logging
 import dotenv
 import json
 from datetime import datetime, timedelta
+import openai
 
 # Load environment variables from .env file
 dotenv.load_dotenv()
@@ -26,7 +26,8 @@ SMTP_SERVER = os.getenv("EMAIL_SMTP_SERVER", "smtp.yeah.net")
 SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", 465))
 SEARCH_QUERY = os.getenv("SEARCH_QUERY")
 MAX_RESULTS = int(os.getenv("MAX_RESULTS", 5))
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")  # 注意：这里使用 DEEPSEEK_API_KEY
+DEEPSEEK_BASE_URL = "https://api.deepseek.com" # Deepseek API 的基础 URL
 SUMMARY_LANGUAGE = os.getenv("SUMMARY_LANGUAGE", "en")  # 可以配置总结语言
 # File to store processed PMIDs
 PROCESSED_PMIDS_FILE = os.getenv("PROCESSED_PMIDS_FILE", "processed_pmids.json")
@@ -37,9 +38,8 @@ PROCESSED_PMIDS_EXPIRATION_DAYS = int(os.getenv("PROCESSED_PMIDS_EXPIRATION_DAYS
 Entrez.email = EMAIL_ADDRESS
 Entrez.api_key = PUBMED_API_KEY
 
-# 配置 Gemini API
-genai.configure(api_key=GOOGLE_API_KEY)
-model = genai.GenerativeModel('gemini-pro')
+# 初始化 DeepSeek API 客户端
+client = openai.OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
 
 
 def load_processed_pmids():
@@ -81,19 +81,27 @@ def fetch_articles():
 
 
 def translate_text(text, target_language="zh-CN"):
-    """使用 Gemini API 翻译文本"""
+    """使用 DeepSeek API 翻译文本"""
     if not text:
         return ""
     try:
-        response = model.generate_content(f"Translate the following text to {target_language}: {text}")
-        return response.text.strip() if response.text else text
+        prompt = f"Translate the following text to {target_language}: {text}"
+        response = client.chat.completions.create(
+            model="deepseek-chat",  # 或者选择其他适合翻译的模型
+            messages=[
+                {"role": "system", "content": "You are a helpful translation assistant."},
+                {"role": "user", "content": prompt},
+            ],
+            stream=False
+        )
+        return response.choices[0].message.content.strip() if response.choices else text
     except Exception as e:
-        logging.error(f"Gemini API 翻译失败: {str(e)}")  # 使用logging
+        logging.error(f"DeepSeek API 翻译失败: {str(e)}")
         return text
 
 
 def summarize_text(text, target_language="en"):  # 默认英文总结
-    """使用 Gemini API 生成文本总结"""
+    """使用 DeepSeek API 生成文本总结"""
     if not text:
         return "无内容可总结"
     try:
@@ -104,14 +112,20 @@ def summarize_text(text, target_language="en"):  # 默认英文总结
         文本：
         {text}
         """
-        response = model.generate_content(prompt)
-        # 清理 Gemini API 返回的文本，去除多余的星号和其他无关符号
-        cleaned_text = response.text.strip().replace("**", "").replace("*", "",).replace("■", "").replace("●",
-                                                                                                           "").replace(
-            "◆", "")
-        return cleaned_text if response.text else "无法生成总结"
+        response = client.chat.completions.create(
+            model="deepseek-chat",  # 或者选择其他适合摘要的模型
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant specialized in summarizing scientific articles."},
+                {"role": "user", "content": prompt},
+            ],
+            stream=False
+        )
+        # 清理 DeepSeek API 返回的文本
+        summary = response.choices[0].message.content.strip() if response.choices else "无法生成总结"
+        cleaned_text = summary.replace("**", "").replace("*", "",).replace("■", "").replace("●", "").replace("◆", "")
+        return cleaned_text
     except Exception as e:
-        logging.error(f"Gemini API 总结失败: {str(e)}")
+        logging.error(f"DeepSeek API 总结失败: {str(e)}")
         return "无法生成总结"
 
 def get_fulltext_by_doi(doi):
