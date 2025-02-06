@@ -87,7 +87,7 @@ def translate_text(text, target_language="zh-CN"):
     try:
         prompt = f"Translate the following text to {target_language}: {text}"
         response = client.chat.completions.create(
-            model="deepseek-chat",  # 或者选择其他适合翻译的模型
+            model="deepseek-reasoner",  # 或者选择其他适合翻译的模型
             messages=[
                 {"role": "system", "content": "You are a helpful assistant specialized in translating scientific articles."},
                 {"role": "user", "content": prompt},
