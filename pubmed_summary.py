@@ -89,7 +89,7 @@ def translate_text(text, target_language="zh-CN"):
         response = client.chat.completions.create(
             model="deepseek-chat",  # 或者选择其他适合翻译的模型
             messages=[
-                {"role": "system", "content": "You are a helpful translation assistant."},
+                {"role": "system", "content": "You are a helpful assistant specialized in translating scientific articles."},
                 {"role": "user", "content": prompt},
             ],
             stream=False
@@ -106,9 +106,10 @@ def summarize_text(text, target_language="en"):  # 默认英文总结
         return "无内容可总结"
     try:
         prompt = f"""
-        请以学术角度总结以下医学研究文章，去除任何与标题、作者、摘要、方法、结论等相关的明确字眼。
-        请概括文章的研究目的、采用的主要方法、取得的关键研究结果以及研究的意义和价值。
-        总结应简洁明了，避免冗余信息。
+        Please provide an academic summary of the following medical research article, 
+        ensuring it encompasses the study's objective or background, the methodology used, 
+        the principal research results obtained, and an assessment of the research's significance and value. 
+        The summary should be clear, concise, and free of unnecessary detail.
         文本：
         {text}
         """
