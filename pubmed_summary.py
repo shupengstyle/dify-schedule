@@ -107,7 +107,7 @@ def summarize_text(text, target_language="en"):  # 默认英文总结
     try:
         prompt = f"""
         Please provide an academic summary of the following medical research article, 
-        ensuring it encompasses the study's objective or background, the methodology used, 
+        ensuring it encompasses the study's background, the methodology used, 
         the principal research results obtained, and an assessment of the research's significance and value. 
         The summary should be clear, concise, and free of unnecessary detail.
         文本：
