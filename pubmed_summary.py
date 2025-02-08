@@ -11,7 +11,7 @@ import dotenv
 import json
 from datetime import datetime, timedelta
 import openai
-rm processed_pmids.json
+
 # Load environment variables from .env file
 dotenv.load_dotenv()
 
@@ -109,7 +109,7 @@ def summarize_text(text, target_language="en"):  # 默认英文总结
         Please provide an academic summary of the following medical research article, 
         ensuring it encompasses the study's background, the methodology used, 
         the principal research results obtained, and an assessment of the research's significance and value. 
-        The summary should be clear, concise, and free of unnecessary detail.
+        The summary should be clear, concise, and free of unnecessary detail. 
         文本：
         {text}
         """
@@ -287,6 +287,16 @@ def send_email(articles):
     except Exception as e:
         logging.error(f"❌ 邮件发送失败: {str(e)}")
 
+def is_processed(processed_pmids, article):
+    """检查文章是否已被处理，优先使用PMCID，如果PMCID不存在则使用DOI"""
+    for entry in processed_pmids:
+        if article["pmcid"] != "无PMCID" and entry.get("pmcid") == article["pmcid"]:  # 优先匹配PMCID
+            return True
+        elif article["doi"] != "无DOI" and entry.get("doi") == article["doi"]:  # 如果没有PMCID，则匹配DOI
+            return True
+    return False
+
+
 if __name__ == "__main__":
     logging.info("🚀 开始获取文献...")
     article_ids = fetch_articles()
@@ -302,20 +312,29 @@ if __name__ == "__main__":
     new_articles = []
 
     for pmid in article_ids:
-        # Format processed_pmids correctly for checking
-        processed_pmids_ids = [entry['pmid'] for entry in processed_pmids]
-
-        if pmid not in processed_pmids_ids:
-            try:
-                if article := get_article_details(pmid):
+        try:
+            if article := get_article_details(pmid):
+                if not is_processed(processed_pmids, article):  # 使用 is_processed 函数检查是否已处理
                     new_articles.append(article)
-                    # Store PMID with timestamp
-                    processed_pmids.append({"pmid": pmid, "timestamp": datetime.now().isoformat()})
+                    # Store PMID with timestamp, PMCID and DOI
+                    processed_pmids.append({
+                        "pmid": pmid,
+                        "timestamp": datetime.now().isoformat(),
+                        "pmcid": article["pmcid"],
+                        "doi": article["doi"]  # 同时保存DOI，方便后续判断
+                    })
+                    logging.info(f"已添加新文章: PMID {pmid}, 标题: {article['title']}")
+
+                else:
+                    logging.info(f"PMID {pmid} (PMCID: {article['pmcid']}, DOI: {article['doi']}) 已经处理过，跳过")
                 time.sleep(0.5)  # 避免速率限制，根据实际情况调整
-            except Exception as e:
-                logging.exception(f"处理PMID {pmid} 时发生未知错误")  # 记录完整堆栈信息
-        else:
-            logging.info(f"PMID {pmid} 已经处理过，跳过")
+
+            else:
+                logging.warning(f"未能获取PMID {pmid} 的文章详情")
+
+        except Exception as e:
+            logging.exception(f"处理PMID {pmid} 时发生未知错误")  # 记录完整堆栈信息
+
 
     if new_articles:
         send_email(new_articles)  # 只发送新的文献
