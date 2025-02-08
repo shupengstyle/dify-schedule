@@ -11,7 +11,7 @@ import dotenv
 import json
 from datetime import datetime, timedelta
 import openai
-
+rm processed_pmids.json
 # Load environment variables from .env file
 dotenv.load_dotenv()
 
